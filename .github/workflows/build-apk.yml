@@ -1,3 +1,4 @@
+
 name: Build Apple Maps APK
 
 on:
@@ -5,6 +6,8 @@ on:
   push:
     paths:
       - 'index.html'
+      - 'icon512.png'
+      - 'icon192.png'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -23,15 +26,8 @@ jobs:
 
       - name: Install Android SDK
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "Checking Android SDK..."
-          test -d "$ANDROID_HOME/cmdline-tools" || exit 1
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager not found"
-            exit 1
-          fi
-          echo "Using $SDKMANAGER"
+          test -n "$SDKMANAGER"
           yes | "$SDKMANAGER" --licenses
           "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
@@ -44,6 +40,52 @@ jobs:
           npx cap init "Apple Maps" "com.maksimilutin.applemaps" --web-dir=app
           npx cap add android
           npx cap sync android
+
+      - name: Set app icons
+        run: |
+          python3 -m pip install Pillow
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+
+          source = Path("icon512.png")
+          if not source.exists():
+              source = Path("icon192.png")
+          if not source.exists():
+              raise SystemExit("ERROR: icon512.png and icon192.png were not found in repository root")
+
+          image = Image.open(source).convert("RGBA")
+          sizes = {
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+
+          res = Path("android/app/src/main/res")
+          for folder, size in sizes.items():
+              target = res / folder
+              target.mkdir(parents=True, exist_ok=True)
+              image.resize((size, size), Image.Resampling.LANCZOS).save(target / "ic_launcher.png")
+              image.resize((size, size), Image.Resampling.LANCZOS).save(target / "ic_launcher_round.png")
+
+          adaptive = res / "mipmap-anydpi-v26"
+          adaptive.mkdir(parents=True, exist_ok=True)
+          foreground = Image.new("RGBA", (432, 432), (0, 0, 0, 0))
+          artwork = image.resize((324, 324), Image.Resampling.LANCZOS)
+          foreground.alpha_composite(artwork, (54, 54))
+          foreground.save(res / "mipmap-xxxhdpi" / "ic_launcher_foreground.png")
+
+          (adaptive / "ic_launcher.xml").write_text(
+              '<?xml version="1.0" encoding="utf-8"?>\n'
+              '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+              '    <background android:drawable="@android:color/white"/>\n'
+              '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
+              '</adaptive-icon>\n'
+          )
+          print("App icon configured from", source)
+          PY
 
       - name: Build APK
         run: |
