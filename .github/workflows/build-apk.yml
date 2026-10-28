@@ -29,12 +29,6 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
             
-
-      - name: Prepare Android platform
-        run: |
-          yes | sdkmanager --licenses
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
-
       - name: Create Android project
         run: |
           npm install -g @capacitor/cli
