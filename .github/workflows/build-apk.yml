@@ -41,6 +41,26 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Configure GPS permissions
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("android/app/src/main/AndroidManifest.xml")
+          s = p.read_text()
+          marker = '<manifest'
+          if marker not in s:
+              raise SystemExit("AndroidManifest.xml is invalid")
+          permissions = '''
+              <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+              <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+          '''
+          if "android.permission.ACCESS_FINE_LOCATION" not in s:
+              s = s.replace("<application", permissions + "\n    <application", 1)
+          p.write_text(s)
+          print("GPS permissions added")
+          PY
+
       - name: Set app icons
         run: |
           python3 -m pip install Pillow
@@ -52,7 +72,7 @@ jobs:
           if not source.exists():
               source = Path("icon192.png")
           if not source.exists():
-              raise SystemExit("ERROR: icon512.png and icon192.png were not found in repository root")
+              raise SystemExit("ERROR: icon512.png and icon192.png were not found")
 
           image = Image.open(source).convert("RGBA")
           sizes = {
@@ -62,7 +82,6 @@ jobs:
               "mipmap-xxhdpi": 144,
               "mipmap-xxxhdpi": 192,
           }
-
           res = Path("android/app/src/main/res")
           for folder, size in sizes.items():
               target = res / folder
@@ -84,7 +103,6 @@ jobs:
               '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
               '</adaptive-icon>\n'
           )
-          print("App icon configured from", source)
           PY
 
       - name: Build APK
@@ -98,3 +116,4 @@ jobs:
         with:
           name: Apple-Maps-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          
