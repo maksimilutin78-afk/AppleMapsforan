@@ -21,7 +21,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-            - name: Install Android SDK
+      - name: Install Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Prepare Android platform
