@@ -22,12 +22,39 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-            - name: Install Android SDK
+      - name: Install Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools,platforms;android-35,build-tools;35.0.0'
 
       - name: Prepare Android platform
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Create Android project
+        run: |
+          npm install -g @capacitor/cli
+          mkdir -p app
+          cp index.html app/index.html
+          npm init -y
+          npm install @capacitor/core @capacitor/android
+          npx cap init "Apple Maps" "com.maksimilutin.applemaps" --web-dir=app
+          npx cap add android
+          npx cap sync android
+
+      - name: Build APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Apple-Maps-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          
         run: |
           yes | sdkmanager --licenses
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
